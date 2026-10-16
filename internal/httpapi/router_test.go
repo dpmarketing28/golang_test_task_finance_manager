@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 
 	"test_task_goblin/internal/domain"
@@ -370,6 +371,45 @@ func TestListUsers(t *testing.T) {
 	list := decode[[]userResponse](t, rec)
 	if len(list) != 2 {
 		t.Errorf("users list = %+v, want 2", list)
+	}
+}
+
+// --- categories & web panel ---------------------------------------------
+
+// Guards against the API's category list drifting from domain's, same
+// spirit as the agent's categoryEnum() test — the web panel's dropdowns
+// are only correct as long as this stays in sync.
+func TestListCategories_MatchesDomain(t *testing.T) {
+	h := newTestRouter(admin)
+
+	rec := doRequest(t, h, http.MethodGet, "/api/categories", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+
+	got := decode[[]string](t, rec)
+	if len(got) != len(domain.AllCategories) {
+		t.Fatalf("categories = %v, want %d entries", got, len(domain.AllCategories))
+	}
+	for i, c := range domain.AllCategories {
+		if got[i] != string(c) {
+			t.Errorf("categories[%d] = %q, want %q", i, got[i], string(c))
+		}
+	}
+}
+
+func TestServeWebUI_ReturnsHTML(t *testing.T) {
+	h := newTestRouter(admin)
+
+	rec := doRequest(t, h, http.MethodGet, "/", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "text/html; charset=utf-8" {
+		t.Errorf("content-type = %q, want text/html", ct)
+	}
+	if !strings.Contains(rec.Body.String(), "<html") {
+		t.Errorf("response doesn't look like HTML: %s", rec.Body.String()[:200])
 	}
 }
 

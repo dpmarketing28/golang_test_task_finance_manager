@@ -22,10 +22,17 @@ func NewRouter(expenseSvc *usecase.ExpenseService, userSvc *usecase.UserService,
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
-	r.Use(withActor(users))
+
+	// The web panel itself needs no actor resolution — it's static
+	// assets, served before withActor so a panel page load never
+	// depends on (or fails because of) the X-Telegram-User-Id header.
+	r.Get("/", serveWebUI)
 
 	r.Route("/api", func(r chi.Router) {
+		r.Use(withActor(users))
+
 		r.Get("/users", userHandler.List)
+		r.Get("/categories", ListCategories)
 
 		r.Route("/expenses", func(r chi.Router) {
 			r.Post("/", expenseHandler.Create)

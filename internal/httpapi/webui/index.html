@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Траты семьи</title>
+<style>
+  :root {
+    --bg: #f7f7f8;
+    --panel: #ffffff;
+    --border: #e3e3e6;
+    --text: #1d1d1f;
+    --muted: #6b6b70;
+    --accent: #2f6fed;
+    --danger: #d4452c;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px 16px 64px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 24px; font-size: 14px; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .card h2 { font-size: 15px; margin: 0 0 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+  .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .field label { font-size: 12px; color: var(--muted); }
+  select, input, button {
+    font-size: 14px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+  }
+  input[type="number"] { width: 110px; }
+  input[type="date"] { width: 140px; }
+  input[type="text"] { width: 160px; }
+
+  button {
+    cursor: pointer;
+    border-color: var(--accent);
+    color: var(--accent);
+    background: #fff;
+    font-weight: 600;
+  }
+  button:hover { background: #eef3ff; }
+  button.primary { background: var(--accent); color: #fff; }
+  button.primary:hover { background: #2559c6; }
+  button.danger { border-color: var(--danger); color: var(--danger); }
+  button.danger:hover { background: #fdeceA; }
+  button:disabled { opacity: .5; cursor: default; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+  tr:last-child td { border-bottom: none; }
+  td.amount { font-weight: 600; white-space: nowrap; }
+  td.actions { white-space: nowrap; text-align: right; }
+  td.actions button { margin-left: 6px; padding: 5px 9px; font-size: 13px; }
+
+  .empty { color: var(--muted); padding: 24px 0; text-align: center; }
+  .error { color: var(--danger); font-size: 13px; margin-top: 8px; }
+  .total { margin-top: 12px; text-align: right; color: var(--muted); font-size: 13px; }
+  .total b { color: var(--text); font-size: 15px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Траты семьи</h1>
+  <p class="sub">Веб-панель главы семьи — без авторизации, видны и редактируются траты всех членов семьи.</p>
+
+  <div class="card">
+    <h2>Добавить трату</h2>
+    <form id="add-form" class="row">
+      <div class="field">
+        <label>Член семьи</label>
+        <select id="add-user" required></select>
+      </div>
+      <div class="field">
+        <label>Сумма</label>
+        <input id="add-amount" type="number" step="0.01" min="0.01" required />
+      </div>
+      <div class="field">
+        <label>Категория</label>
+        <select id="add-category" required></select>
+      </div>
+      <div class="field">
+        <label>Дата</label>
+        <input id="add-date" type="date" required />
+      </div>
+      <div class="field">
+        <label>Комментарий</label>
+        <input id="add-comment" type="text" placeholder="необязательно" />
+      </div>
+      <div class="field">
+        <button type="submit" class="primary">Добавить</button>
+      </div>
+    </form>
+    <div id="add-error" class="error"></div>
+  </div>
+
+  <div class="card">
+    <h2>Фильтры</h2>
+    <div class="row">
+      <div class="field">
+        <label>Член семьи</label>
+        <select id="f-user"><option value="">Все</option></select>
+      </div>
+      <div class="field">
+        <label>Категория</label>
+        <select id="f-category"><option value="">Все</option></select>
+      </div>
+      <div class="field">
+        <label>С</label>
+        <input id="f-from" type="date" />
+      </div>
+      <div class="field">
+        <label>По</label>
+        <input id="f-to" type="date" />
+      </div>
+      <div class="field">
+        <button id="f-reset" type="button">Сбросить</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Траты</h2>
+    <div id="list-error" class="error"></div>
+    <table>
+      <thead>
+        <tr>
+          <th>Дата</th>
+          <th>Сумма</th>
+          <th>Категория</th>
+          <th>Кто</th>
+          <th>Комментарий</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div id="empty" class="empty" style="display:none">Пока ничего не записано</div>
+    <div class="total">Итого по списку: <b id="total">0</b></div>
+  </div>
+</div>
+
+<script>
+const API = "/api";
+let users = [];
+let categories = [];
+let expenses = [];
+
+function userName(id) {
+  const u = users.find(u => u.telegram_id === id);
+  return u ? u.name : String(id);
+}
+
+function fmtMoney(n) {
+  return new Intl.NumberFormat("ru-RU").format(n);
+}
+
+async function api(path, options) {
+  const res = await fetch(API + path, options);
+  if (!res.ok) {
+    let msg = res.statusText;
+    try { msg = (await res.json()).error || msg; } catch (_) {}
+    throw new Error(msg);
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+function fillSelect(sel, items, toValue, toLabel, placeholder) {
+  sel.innerHTML = "";
+  if (placeholder) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = placeholder;
+    sel.appendChild(opt);
+  }
+  for (const item of items) {
+    const opt = document.createElement("option");
+    opt.value = toValue(item);
+    opt.textContent = toLabel(item);
+    sel.appendChild(opt);
+  }
+}
+
+async function loadLookups() {
+  [users, categories] = await Promise.all([api("/users"), api("/categories")]);
+
+  fillSelect(document.getElementById("add-user"), users, u => u.telegram_id, u => u.name + (u.role === "admin" ? " (глава семьи)" : ""));
+  fillSelect(document.getElementById("add-category"), categories, c => c, c => c);
+  fillSelect(document.getElementById("f-user"), users, u => u.telegram_id, u => u.name, "Все");
+  fillSelect(document.getElementById("f-category"), categories, c => c, c => c, "Все");
+}
+
+function buildQuery() {
+  const params = new URLSearchParams();
+  const u = document.getElementById("f-user").value;
+  const c = document.getElementById("f-category").value;
+  const from = document.getElementById("f-from").value;
+  const to = document.getElementById("f-to").value;
+  if (u) params.set("user_id", u);
+  if (c) params.set("category", c);
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  return params.toString();
+}
+
+async function loadExpenses() {
+  const errEl = document.getElementById("list-error");
+  errEl.textContent = "";
+  try {
+    const qs = buildQuery();
+    expenses = await api("/expenses" + (qs ? "?" + qs : ""));
+    renderRows();
+  } catch (e) {
+    errEl.textContent = "Не удалось загрузить траты: " + e.message;
+  }
+}
+
+function renderRows() {
+  const tbody = document.getElementById("rows");
+  tbody.innerHTML = "";
+  document.getElementById("empty").style.display = expenses.length ? "none" : "block";
+
+  let total = 0;
+  for (const e of expenses) {
+    total += e.amount;
+    const tr = document.createElement("tr");
+    tr.dataset.id = e.id;
+    tr.innerHTML = `
+      <td>${e.spent_at}</td>
+      <td class="amount">${fmtMoney(e.amount)}</td>
+      <td>${e.category}</td>
+      <td>${userName(e.user_id)}</td>
+      <td>${e.comment ? e.comment : ""}</td>
+      <td class="actions">
+        <button data-action="edit">Изменить</button>
+        <button data-action="delete" class="danger">Удалить</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  }
+  document.getElementById("total").textContent = fmtMoney(total);
+}
+
+function startEdit(tr, expense) {
+  const categoryOptions = categories.map(c =>
+    `<option value="${c}" ${c === expense.category ? "selected" : ""}>${c}</option>`
+  ).join("");
+
+  tr.innerHTML = `
+    <td><input type="date" value="${expense.spent_at}" data-field="spent_at" /></td>
+    <td><input type="number" step="0.01" min="0.01" value="${expense.amount}" data-field="amount" style="width:90px" /></td>
+    <td><select data-field="category">${categoryOptions}</select></td>
+    <td>${userName(expense.user_id)}</td>
+    <td><input type="text" value="${expense.comment ? expense.comment : ""}" data-field="comment" /></td>
+    <td class="actions">
+      <button data-action="save" class="primary">Сохранить</button>
+      <button data-action="cancel">Отмена</button>
+    </td>
+  `;
+
+  tr.querySelector('[data-action="save"]').addEventListener("click", async () => {
+    const patch = {
+      spent_at: tr.querySelector('[data-field="spent_at"]').value,
+      amount: parseFloat(tr.querySelector('[data-field="amount"]').value),
+      category: tr.querySelector('[data-field="category"]').value,
+      comment: tr.querySelector('[data-field="comment"]').value,
+    };
+    try {
+      await api(`/expenses/${expense.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      await loadExpenses();
+    } catch (e) {
+      document.getElementById("list-error").textContent = "Не удалось сохранить: " + e.message;
+    }
+  });
+
+  tr.querySelector('[data-action="cancel"]').addEventListener("click", renderRows);
+}
+
+document.getElementById("rows").addEventListener("click", async (ev) => {
+  const btn = ev.target.closest("button");
+  if (!btn) return;
+  const tr = btn.closest("tr");
+  const id = Number(tr.dataset.id);
+  const expense = expenses.find(e => e.id === id);
+
+  if (btn.dataset.action === "edit") {
+    startEdit(tr, expense);
+  } else if (btn.dataset.action === "delete") {
+    if (!confirm(`Удалить трату «${expense.comment || expense.category}» на ${fmtMoney(expense.amount)}?`)) return;
+    try {
+      await api(`/expenses/${id}`, { method: "DELETE" });
+      await loadExpenses();
+    } catch (e) {
+      document.getElementById("list-error").textContent = "Не удалось удалить: " + e.message;
+    }
+  }
+});
+
+document.getElementById("add-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const errEl = document.getElementById("add-error");
+  errEl.textContent = "";
+
+  const body = {
+    user_id: Number(document.getElementById("add-user").value),
+    amount: parseFloat(document.getElementById("add-amount").value),
+    category: document.getElementById("add-category").value,
+    spent_at: document.getElementById("add-date").value,
+    comment: document.getElementById("add-comment").value,
+  };
+
+  try {
+    await api("/expenses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    document.getElementById("add-form").reset();
+    document.getElementById("add-date").value = new Date().toISOString().slice(0, 10);
+    await loadExpenses();
+  } catch (e) {
+    errEl.textContent = "Не удалось добавить: " + e.message;
+  }
+});
+
+document.getElementById("f-user").addEventListener("change", loadExpenses);
+document.getElementById("f-category").addEventListener("change", loadExpenses);
+document.getElementById("f-from").addEventListener("change", loadExpenses);
+document.getElementById("f-to").addEventListener("change", loadExpenses);
+document.getElementById("f-reset").addEventListener("click", () => {
+  document.getElementById("f-user").value = "";
+  document.getElementById("f-category").value = "";
+  document.getElementById("f-from").value = "";
+  document.getElementById("f-to").value = "";
+  loadExpenses();
+});
+
+(async function init() {
+  document.getElementById("add-date").value = new Date().toISOString().slice(0, 10);
+  try {
+    await loadLookups();
+    await loadExpenses();
+  } catch (e) {
+    document.getElementById("list-error").textContent = "Не удалось загрузить данные: " + e.message;
+  }
+})();
+</script>
+</body>
+</html>
