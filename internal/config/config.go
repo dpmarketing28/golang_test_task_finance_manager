@@ -20,6 +20,12 @@ type Config struct {
 	// 0 means "not configured yet" — every new family member then
 	// registers as a regular member until this is set.
 	FamilyAdminTelegramID int64
+
+	// LLM access is fully config-driven: swapping provider/model/key
+	// never requires touching code, only these three values.
+	LLMAPIKey  string
+	LLMBaseURL string
+	LLMModel   string
 }
 
 // Load reads a .env file if present (real env vars always win) and builds
@@ -34,6 +40,9 @@ func Load() (*Config, error) {
 		TelegramBotToken: os.Getenv("TELEGRAM_BOT_TOKEN"),
 		DatabaseURL:      os.Getenv("DATABASE_URL"),
 		HTTPAddr:         envOrDefault("HTTP_ADDR", ":8080"),
+		LLMAPIKey:        os.Getenv("LLM_API_KEY"),
+		LLMBaseURL:       envOrDefault("LLM_BASE_URL", "https://openrouter.ai/api/v1"),
+		LLMModel:         os.Getenv("LLM_MODEL"),
 	}
 
 	if cfg.TelegramBotToken == "" {
@@ -51,6 +60,10 @@ func Load() (*Config, error) {
 		cfg.FamilyAdminTelegramID = id
 	} else {
 		log.Println("config: FAMILY_ADMIN_TELEGRAM_ID is not set — no family member will get admin rights yet")
+	}
+
+	if cfg.LLMAPIKey == "" || cfg.LLMModel == "" {
+		log.Println("config: LLM_API_KEY/LLM_MODEL not set — NLU agent will not be able to call the LLM yet")
 	}
 
 	return cfg, nil

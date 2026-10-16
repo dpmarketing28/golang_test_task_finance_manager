@@ -31,6 +31,14 @@ func (c Category) Valid() bool {
 	return categories[c]
 }
 
+// AllCategories lists every valid category in a stable order. Used to
+// build the LLM tool schema and any future UI picker without duplicating
+// the list.
+var AllCategories = []Category{
+	CategoryFood, CategoryTransport, CategoryHousing, CategoryEntertainment,
+	CategoryHealth, CategoryShopping, CategoryOther,
+}
+
 // Expense is a single spending record belonging to one family member.
 type Expense struct {
 	ID        int64

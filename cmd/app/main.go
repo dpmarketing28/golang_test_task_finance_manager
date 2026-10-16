@@ -11,12 +11,19 @@ import (
 	"syscall"
 	"time"
 
+	"test_task_goblin/internal/agent"
 	"test_task_goblin/internal/config"
 	"test_task_goblin/internal/httpapi"
+	"test_task_goblin/internal/llm"
 	"test_task_goblin/internal/storage/postgres"
 	"test_task_goblin/internal/telegram"
 	"test_task_goblin/internal/usecase"
 )
+
+// agentMemoryTurns is how many past (user, assistant) exchanges the NLU
+// agent keeps per family member — just enough for short follow-ups like
+// "а подешевле?", not a full chat log.
+const agentMemoryTurns = 6
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -43,7 +50,10 @@ func main() {
 	userSvc := usecase.NewUserService(userRepo, cfg.FamilyAdminTelegramID)
 	expenseSvc := usecase.NewExpenseService(expenseRepo)
 
-	bot, err := telegram.New(cfg.TelegramBotToken, userSvc)
+	llmClient := llm.New(llm.Config{APIKey: cfg.LLMAPIKey, BaseURL: cfg.LLMBaseURL, Model: cfg.LLMModel})
+	nluAgent := agent.New(llmClient, expenseSvc, userSvc, agent.NewMemory(agentMemoryTurns))
+
+	bot, err := telegram.New(cfg.TelegramBotToken, userSvc, nluAgent)
 	if err != nil {
 		log.Fatalf("telegram: %v", err)
 	}
